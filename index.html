@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <title>Dein Photobooth Foto</title>
 
   <style>
@@ -69,17 +68,31 @@
       font-weight: 600;
       border: none;
       cursor: pointer;
+      font-family: inherit;
     }
 
-    .download {
+    .primary {
       background: #111;
       color: white;
     }
 
-    .share {
+    .secondary {
       background: white;
       color: #111;
       border: 1px solid #ddd;
+    }
+
+    .info {
+      margin-top: 14px;
+      font-size: 14px;
+      color: #666;
+      line-height: 1.5;
+    }
+
+    .loading {
+      margin-top: 16px;
+      color: #666;
+      font-size: 15px;
     }
 
     #error {
@@ -99,92 +112,168 @@
 </head>
 
 <body>
+  <div class="container">
+    <h1>Dein Foto</h1>
+    <p class="subtitle">Danke fürs Mitmachen 📸</p>
 
-<div class="container">
+    <div id="content" style="display:none;">
+      <div class="photo-card">
+        <img id="photo" alt="Photobooth Foto">
+      </div>
 
-  <h1>Dein Foto</h1>
-  <p class="subtitle">Danke fürs Mitmachen 📸</p>
+      <div class="buttons">
+        <button id="saveButton" class="button primary">Foto speichern</button>
+        <a id="downloadButton" class="button secondary" href="#" download>Direkt herunterladen</a>
+        <button id="shareButton" class="button secondary">Foto teilen</button>
+      </div>
 
-  <div id="content">
-
-    <div class="photo-card">
-      <img id="photo" alt="Photobooth Foto">
+      <div class="info">
+        Auf iPhone und Android öffnet <strong>„Foto speichern“</strong> möglichst das native Teilen-/Speichern-Menü.
+      </div>
     </div>
 
-    <div class="buttons">
-      <a id="downloadButton" class="button download">
-        Foto speichern
-      </a>
-
-      <button id="shareButton" class="button share">
-        Foto teilen
-      </button>
+    <div id="loading" class="loading">
+      Foto wird geladen…
     </div>
 
-  </div>
+    <div id="error">
+      Das Foto konnte leider nicht gefunden werden.<br><br>
+      Bitte versuche es in ein paar Sekunden erneut.
+    </div>
 
-  <div id="error">
-    Das Foto konnte leider nicht gefunden werden.
-  </div>
-
-  <div class="footer">
-     © Bales Smart Home -
+    <div class="footer">
+      © Bales Smart Home -
       <a href="https://www.bales-smarthome.de">www.bales-smarthome.de</a>
+    </div>
   </div>
 
-</div>
+  <script>
+    const CLOUD_NAME = "m9kjeomx";
 
-<script>
-const CLOUD_NAME = "m9kjeomx";
+    const params = new URLSearchParams(window.location.search);
+    const filename = params.get("img");
 
-const params = new URLSearchParams(window.location.search);
-const filename = params.get("img");
+    const photo = document.getElementById("photo");
+    const content = document.getElementById("content");
+    const loading = document.getElementById("loading");
+    const errorBox = document.getElementById("error");
+    const saveButton = document.getElementById("saveButton");
+    const downloadButton = document.getElementById("downloadButton");
+    const shareButton = document.getElementById("shareButton");
 
-const photo = document.getElementById("photo");
-const downloadButton = document.getElementById("downloadButton");
-const shareButton = document.getElementById("shareButton");
-
-if (!filename || !/^[a-zA-Z0-9_.-]+$/.test(filename)) {
-
-  document.getElementById("content").style.display = "none";
-  document.getElementById("error").style.display = "block";
-
-} else {
-
-  const viewUrl =
-    `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${filename}`;
-
-  const downloadUrl =
-    `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/fl_attachment/${filename}`;
-
-  photo.src = viewUrl;
-  downloadButton.href = downloadUrl;
-
-  photo.onerror = function() {
-    document.getElementById("content").style.display = "none";
-    document.getElementById("error").style.display = "block";
-  };
-
-  shareButton.addEventListener("click", async function() {
-
-    if (navigator.share) {
-
-      try {
-        await navigator.share({
-          title: "Photobooth Foto",
-          text: "Hier ist dein Photobooth Foto",
-          url: viewUrl
-        });
-      } catch (e) {}
-
-    } else {
-      window.open(viewUrl, "_blank");
+    function showError() {
+      loading.style.display = "none";
+      content.style.display = "none";
+      errorBox.style.display = "block";
     }
 
-  });
+    function isValidFilename(name) {
+      return /^[a-zA-Z0-9_.-]+$/.test(name);
+    }
 
-}
-</script>
+    if (!filename || !isValidFilename(filename)) {
+      showError();
+    } else {
+      const viewUrl = `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${filename}`;
+      const downloadUrl = `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/fl_attachment/${filename}`;
 
+      downloadButton.href = downloadUrl;
+
+      let attempts = 0;
+      const maxAttempts = 10;
+      const retryDelay = 1500;
+
+      function tryLoadImage() {
+        attempts++;
+
+        const testImage = new Image();
+
+        testImage.onload = function () {
+          photo.src = viewUrl;
+          loading.style.display = "none";
+          errorBox.style.display = "none";
+          content.style.display = "block";
+        };
+
+        testImage.onerror = function () {
+          if (attempts < maxAttempts) {
+            loading.textContent = `Foto wird geladen… (${attempts}/${maxAttempts})`;
+            setTimeout(tryLoadImage, retryDelay);
+          } else {
+            showError();
+          }
+        };
+
+        testImage.src = viewUrl + "?t=" + Date.now();
+      }
+
+      tryLoadImage();
+
+      async function fetchImageFile() {
+        const response = await fetch(viewUrl);
+        if (!response.ok) {
+          throw new Error("Bild konnte nicht geladen werden");
+        }
+
+        const blob = await response.blob();
+        return new File(
+          [blob],
+          filename,
+          { type: blob.type || "image/jpeg" }
+        );
+      }
+
+      saveButton.addEventListener("click", async function () {
+        try {
+          const file = await fetchImageFile();
+
+          if (
+            navigator.share &&
+            navigator.canShare &&
+            navigator.canShare({ files: [file] })
+          ) {
+            await navigator.share({
+              files: [file],
+              title: "Photobooth Foto"
+            });
+          } else {
+            window.location.href = downloadUrl;
+          }
+        } catch (error) {
+          console.error(error);
+          window.location.href = downloadUrl;
+        }
+      });
+
+      shareButton.addEventListener("click", async function () {
+        try {
+          const file = await fetchImageFile();
+
+          if (
+            navigator.share &&
+            navigator.canShare &&
+            navigator.canShare({ files: [file] })
+          ) {
+            await navigator.share({
+              files: [file],
+              title: "Photobooth Foto",
+              text: "Hier ist dein Photobooth Foto"
+            });
+          } else if (navigator.share) {
+            await navigator.share({
+              title: "Photobooth Foto",
+              text: "Hier ist dein Photobooth Foto",
+              url: viewUrl
+            });
+          } else {
+            window.open(viewUrl, "_blank");
+          }
+        } catch (error) {
+          console.error(error);
+          window.open(viewUrl, "_blank");
+        }
+      });
+    }
+  </script>
 </body>
 </html>
