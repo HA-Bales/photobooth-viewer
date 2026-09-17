@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Dein Photobooth Foto</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #f5f5f7;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      color: #111;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 10px 0 6px;
+      font-size: 28px;
+    }
+
+    .subtitle {
+      margin: 0 0 24px;
+      color: #666;
+      font-size: 16px;
+    }
+
+    .photo-card {
+      background: white;
+      padding: 10px;
+      border-radius: 18px;
+      box-shadow: 0 6px 30px rgba(0,0,0,0.08);
+    }
+
+    #photo {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 12px;
+    }
+
+    .buttons {
+      margin-top: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .button {
+      display: block;
+      width: 100%;
+      padding: 16px 20px;
+      border-radius: 12px;
+      text-decoration: none;
+      font-size: 17px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+    }
+
+    .download {
+      background: #111;
+      color: white;
+    }
+
+    .share {
+      background: white;
+      color: #111;
+      border: 1px solid #ddd;
+    }
+
+    #error {
+      display: none;
+      background: white;
+      padding: 30px 20px;
+      border-radius: 16px;
+      box-shadow: 0 6px 30px rgba(0,0,0,0.08);
+    }
+
+    .footer {
+      margin-top: 28px;
+      font-size: 13px;
+      color: #999;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <h1>Dein Foto</h1>
+  <p class="subtitle">Danke fürs Mitmachen 📸</p>
+
+  <div id="content">
+
+    <div class="photo-card">
+      <img id="photo" alt="Photobooth Foto">
+    </div>
+
+    <div class="buttons">
+      <a id="downloadButton" class="button download">
+        Foto speichern
+      </a>
+
+      <button id="shareButton" class="button share">
+        Foto teilen
+      </button>
+    </div>
+
+  </div>
+
+  <div id="error">
+    Das Foto konnte leider nicht gefunden werden.
+  </div>
+
+  <div class="footer">
+    Photobooth
+  </div>
+
+</div>
+
+<script>
+const CLOUD_NAME = "m9kjeomx";
+
+const params = new URLSearchParams(window.location.search);
+const filename = params.get("img");
+
+const photo = document.getElementById("photo");
+const downloadButton = document.getElementById("downloadButton");
+const shareButton = document.getElementById("shareButton");
+
+if (!filename || !/^[a-zA-Z0-9_.-]+$/.test(filename)) {
+
+  document.getElementById("content").style.display = "none";
+  document.getElementById("error").style.display = "block";
+
+} else {
+
+  const viewUrl =
+    `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${filename}`;
+
+  const downloadUrl =
+    `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/fl_attachment/${filename}`;
+
+  photo.src = viewUrl;
+  downloadButton.href = downloadUrl;
+
+  photo.onerror = function() {
+    document.getElementById("content").style.display = "none";
+    document.getElementById("error").style.display = "block";
+  };
+
+  shareButton.addEventListener("click", async function() {
+
+    if (navigator.share) {
+
+      try {
+        await navigator.share({
+          title: "Photobooth Foto",
+          text: "Hier ist dein Photobooth Foto",
+          url: viewUrl
+        });
+      } catch (e) {}
+
+    } else {
+      window.open(viewUrl, "_blank");
+    }
+
+  });
+
+}
+</script>
+
+</body>
+</html>
